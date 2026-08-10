@@ -2,43 +2,54 @@
 from __future__ import annotations
 
 import io
+import json
+import socket  # noqa: F401  (kept for future transport tests)
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from shesha_mcp_bundle.proxy import BundledMcp, ToolProxy  # noqa: E402
-from shesha_mcp_bundle.registry import BundledServer, default_servers, is_available  # noqa: E402
+from shesha_mcp_bundle.proxy import BundledMcp  # noqa: E402
+from shesha_mcp_bundle.registry import (  # noqa: E402
+    BundledServer, default_servers,
+)
 
 
 class FakeProc:
-    """A fake MCP upstream that responds based on the JSON-RPC method requested."""
+    """A fake MCP upstream responding by JSON-RPC method."""
+
     def __init__(self):
         self.stdin = io.StringIO()
-        self._responses = {
+        self._by_method = {
             "initialize": '{"jsonrpc":"2.0","id":1,"result":{}}',
-            "tools/list": '{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"read_file","description":"r"}]}}',
-            "tools/call": '{"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"ok"}]}}',
+            "tools/list": (
+                '{"jsonrpc":"2.0","id":2,"result":{"tools":['
+                '{"name":"read_file","description":"r"}]}}'
+            ),
+            "tools/call": (
+                '{"jsonrpc":"2.0","id":3,"result":'
+                '{"content":[{"type":"text","text":"ok"}]}}'
+            ),
         }
-        self._default = self._responses["tools/list"]
+
         class _Out:
-            def __init__(s_inner, outer): s_inner.outer = outer
-            def readline(s_inner):
-                return s_inner.outer._next_response() + "\n"
+            def __init__(self_inner, outer):
+                self_inner.outer = outer
+
+            def readline(self_inner):
+                return self_inner.outer._next_response() + "\n"
+
         self.stdout = _Out(self)
         self.pid = 12345
 
-    def _next_response(self):
-        import json as _json
-        # Read what the client sent and respond by method.
-        line = self.stdin.getvalue().strip().splitlines()[-1] if self.stdin.getvalue().strip() else ""
+    def _next_response(self) -> str:
+        val = self.stdin.getvalue().strip()
+        line = val.splitlines()[-1] if val else ""
         try:
-            method = _json.loads(line).get("method", "")
+            method = json.loads(line).get("method", "")
         except Exception:
             method = ""
-        return self._responses.get(method, self._default)
+        return self._by_method.get(method, self._by_method["tools/list"])
 
     def terminate(self):
         pass
@@ -46,19 +57,23 @@ class FakeProc:
 
 def test_guarded_call_denies_protected(monkeypatch):
     server = BundledServer("filesystem", ("true",), "fs", "files")
-    # Force availability and fake process start.
     monkeypatch.setattr("shesha_mcp_bundle.proxy.is_available", lambda c: True)
     bundle = BundledMcp(servers=[server])
-    _fp = FakeProc()
-    monkeypatch.setattr(bundle, "_start", lambda s: _fp)
-    # Add a deny-all guard.
+    fp = FakeProc()
+    monkeypatch.setattr(bundle, "_start", lambda s: fp)
+
     class DummyGuard:
-        def check(self, tool, args, actor="agent"):
-            from types import SimpleNamespace
-            return SimpleNamespace(verdict="deny", reason="blocked",
-                                    allowed=False, requires_confirmation=False)
+        verdict = "deny"
+        allowed = False
+        requires_confirmation = False
+        reason = "blocked"
+
+        def check(self, *a, **k):
+            return self
+
         def log_execution(self, *a, **k):
             pass
+
     bundle.guard = DummyGuard()
     tools = bundle.list_tools()
     assert tools and tools[0].exposed_name == "fs_read_file"
@@ -66,26 +81,27 @@ def test_guarded_call_denies_protected(monkeypatch):
     assert result["ok"] is False and "denied" in result["error"]
 
 
-def test_guarded_call_allows_and_forwards(monkeypatch):
-    server = BundledServer("fetch", ("true",), "fetch", "web fetch")
+def test_guarded_call_allows_and_routes(monkeypatch):
+    server = BundledServer("fetch", ("true",), "fetch", "web")
     monkeypatch.setattr("shesha_mcp_bundle.proxy.is_available", lambda c: True)
     bundle = BundledMcp(servers=[server])
-    _fp = FakeProc()
-    monkeypatch.setattr(bundle, "_start", lambda s: _fp)
+    fp = FakeProc()
+    monkeypatch.setattr(bundle, "_start", lambda s: fp)
 
-    class AllowGuard:
+    class Allow:
         verdict = "allow"
         allowed = True
         requires_confirmation = False
         reason = "ok"
+
         def check(self, *a, **k):
             return self
+
         def log_execution(self, *a, **k):
             pass
-    bundle.guard = AllowGuard()
+
+    bundle.guard = Allow()
     tools = bundle.list_tools()
-    # With our fake upstream (tools/list returns read_file, but tools/call
-    # would need another response); just assert routing/prefix.
     assert tools[0].exposed_name == "fetch_read_file"
 
 

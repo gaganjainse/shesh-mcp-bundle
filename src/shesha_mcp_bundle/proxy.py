@@ -19,7 +19,7 @@ from .registry import BundledServer, is_available
 
 @dataclass
 class ToolProxy:
-    bundle: "BundledMcp"
+    bundle: BundledMcp
     server: BundledServer
     upstream_name: str
 
@@ -98,7 +98,7 @@ class BundledMcp:
         tools: list[ToolProxy] = []
         for s in self.available_servers():
             try:
-                proc = self._start(s)
+                self._start(s)
                 resp = self._call_upstream(s, "tools/list", {})
                 for t in resp.get("result", resp).get("tools", []):
                     tools.append(ToolProxy(self, s, t["name"]))

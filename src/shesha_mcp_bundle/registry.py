@@ -5,7 +5,7 @@ declarative: the actual subprocess proxying is in proxy.py.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 
