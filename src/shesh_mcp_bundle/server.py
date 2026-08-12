@@ -7,15 +7,10 @@ calls are policy-checked exactly like locally registered tools.
 """
 from __future__ import annotations
 
-from fastmcp import FastMCP
 from fastmcp.server import create_proxy
+from shesh_audit.mcp_guard import GuardedMCP as _MCP
 
 from .registry import BundledServer, default_servers
-
-try:
-    from shesh_audit.mcp_guard import GuardedMCP as _MCP
-except ImportError:
-    _MCP = FastMCP
 
 mcp = _MCP("shesh-mcp-bundle")
 
