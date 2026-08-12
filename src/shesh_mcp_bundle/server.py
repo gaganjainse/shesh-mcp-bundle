@@ -1,10 +1,16 @@
-"""MCP server exposing the bundled third-party tools behind the Guard."""
+"""MCP server exposing bundled third-party MCP servers behind the Guard.
+
+FastMCP 3 mounts each available upstream via its stdio transport (native,
+schema-correct, no hand-rolled JSON-RPC) under the registry's namespace
+prefix. Guard enforcement rides GuardedMCP's protocol middleware, so proxied
+calls are policy-checked exactly like locally registered tools.
+"""
 from __future__ import annotations
 
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
+from fastmcp.server import create_proxy
 
-from .proxy import BundledMcp, ToolProxy
-from .registry import default_servers
+from .registry import BundledServer, default_servers
 
 try:
     from shesh_audit.mcp_guard import GuardedMCP as _MCP
@@ -13,26 +19,44 @@ except ImportError:
 
 mcp = _MCP("shesh-mcp-bundle")
 
-_bundle = BundledMcp(servers=default_servers())
+
+def _stdio_config(server: BundledServer) -> dict:
+    """MCPConfig entry for one stdio upstream (command + args)."""
+    return {
+        "mcpServers": {
+            server.name: {
+                "command": server.command[0],
+                "args": list(server.command[1:]),
+                "transport": "stdio",
+            }
+        }
+    }
 
 
-def _register_tools() -> None:
-    """Discover bundled tools and register each as an MCP tool."""
-    for proxy in _bundle.list_tools():
-        _make_tool(proxy)
+def mount_available(servers: list[BundledServer] | None = None) -> list[str]:
+    """Proxy-mount every available upstream under its namespace.
+
+    Skips servers whose launcher binary is missing (unless required=True,
+    which raises, as before). Returns the namespaces actually mounted.
+    Connection to the upstream is lazy — established on first tool call.
+    """
+    import shutil
+
+    mounted: list[str] = []
+    for server in servers if servers is not None else default_servers():
+        if shutil.which(server.command[0]) is None:
+            if server.required:
+                raise RuntimeError(
+                    f"required MCP server {server.name!r}: {server.command[0]} not on PATH"
+                )
+            continue
+        proxy = create_proxy(_stdio_config(server))
+        mcp.mount(proxy, namespace=server.prefix)
+        mounted.append(server.prefix)
+    return mounted
 
 
-def _make_tool(proxy: ToolProxy):
-    # Register with a stable name; docstring becomes the tool description.
-    @mcp.tool(name=proxy.exposed_name)
-    def _tool(**kwargs) -> dict:  # noqa: ANN003
-        return proxy.call(kwargs)
-    _tool.__doc__ = f"Bundled '{proxy.server.name}' tool: {proxy.upstream_name}"
-    return _tool
-
-
-# Register at import so the MCP server advertises them (lazily started).
-_register_tools()
+mount_available()
 
 
 def main() -> None:

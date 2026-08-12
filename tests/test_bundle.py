@@ -1,116 +1,99 @@
-"""Offline tests for the MCP bundle (with a fake upstream)."""
+"""Tests for the MCP bundle: mount wiring, namespacing, guard middleware."""
 from __future__ import annotations
 
-import io
-import json
-import socket  # noqa: F401  (kept for future transport tests)
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from shesh_mcp_bundle.proxy import BundledMcp  # noqa: E402
+import pytest  # noqa: E402
+from fastmcp import Client, FastMCP  # noqa: E402
+from fastmcp.exceptions import ToolError  # noqa: E402
+
+from shesh_mcp_bundle import server as bundle_server  # noqa: E402
 from shesh_mcp_bundle.registry import (  # noqa: E402
     BundledServer,
     default_servers,
 )
 
 
-class FakeProc:
-    """A fake MCP upstream responding by JSON-RPC method."""
+def _upstream(name="up") -> FastMCP:
+    """An in-memory 'upstream' MCP server with one tool."""
+    up = FastMCP(name)
 
-    def __init__(self):
-        self.stdin = io.StringIO()
-        self._by_method = {
-            "initialize": '{"jsonrpc":"2.0","id":1,"result":{}}',
-            "tools/list": (
-                '{"jsonrpc":"2.0","id":2,"result":{"tools":['
-                '{"name":"read_file","description":"r"}]}}'
-            ),
-            "tools/call": (
-                '{"jsonrpc":"2.0","id":3,"result":'
-                '{"content":[{"type":"text","text":"ok"}]}}'
-            ),
-        }
+    @up.tool()
+    def read_file(path: str) -> dict:
+        return {"ok": True, "path": path}
 
-        class _Out:
-            def __init__(self_inner, outer):
-                self_inner.outer = outer
-
-            def readline(self_inner):
-                return self_inner.outer._next_response() + "\n"
-
-        self.stdout = _Out(self)
-        self.pid = 12345
-
-    def _next_response(self) -> str:
-        val = self.stdin.getvalue().strip()
-        line = val.splitlines()[-1] if val else ""
-        try:
-            method = json.loads(line).get("method", "")
-        except Exception:
-            method = ""
-        return self._by_method.get(method, self._by_method["tools/list"])
-
-    def terminate(self):
-        pass
+    return up
 
 
-def test_guarded_call_denies_protected(monkeypatch):
-    server = BundledServer("filesystem", ("true",), "fs", "files")
-    monkeypatch.setattr("shesh_mcp_bundle.proxy.is_available", lambda c: True)
-    bundle = BundledMcp(servers=[server])
-    fp = FakeProc()
-    monkeypatch.setattr(bundle, "_start", lambda s: fp)
+def _fresh_guarded(name="test-bundle"):
+    """GuardedMCP independent of module-level singleton."""
+    import tempfile
 
-    class DummyGuard:
-        verdict = "deny"
-        allowed = False
-        requires_confirmation = False
-        reason = "blocked"
+    from shesh_audit.gate import Guard
+    from shesh_audit.log import AuditLog
+    from shesh_audit.mcp_guard import GuardedMCP
+    from shesh_audit.policy import Policy, Rule, Verdict
 
-        def check(self, *a, **k):
-            return self
-
-        def log_execution(self, *a, **k):
-            pass
-
-    bundle.guard = DummyGuard()
-    tools = bundle.list_tools()
-    assert tools and tools[0].exposed_name == "fs_read_file"
-    result = tools[0].call({"path": "/home/u/.ssh/id_rsa"})
-    assert result["ok"] is False and "denied" in result["error"]
+    guard = Guard(
+        audit=AuditLog(root=Path(tempfile.mkdtemp())),
+        policy=Policy(rules=[Rule(Verdict.DENY, "*", path_glob="*/.ssh/*")]),
+    )
+    return GuardedMCP(name, guard=guard)
 
 
-def test_guarded_call_allows_and_routes(monkeypatch):
-    server = BundledServer("fetch", ("true",), "fetch", "web")
-    monkeypatch.setattr("shesh_mcp_bundle.proxy.is_available", lambda c: True)
-    bundle = BundledMcp(servers=[server])
-    fp = FakeProc()
-    monkeypatch.setattr(bundle, "_start", lambda s: fp)
-
-    class Allow:
-        verdict = "allow"
-        allowed = True
-        requires_confirmation = False
-        reason = "ok"
-
-        def check(self, *a, **k):
-            return self
-
-        def log_execution(self, *a, **k):
-            pass
-
-    bundle.guard = Allow()
-    tools = bundle.list_tools()
-    assert tools[0].exposed_name == "fetch_read_file"
+@pytest.mark.asyncio
+async def test_mount_namespaces_tools():
+    srv = _fresh_guarded()
+    srv.mount(_upstream(), namespace="fs")
+    async with Client(srv) as c:
+        tools = await c.list_tools()
+        assert any(t.name == "fs_read_file" for t in tools)
 
 
-def test_missing_server_skipped(monkeypatch):
-    server = BundledServer("x", ("nonexistent-binary-xyz",), "x", "x")
-    monkeypatch.setattr("shesh_mcp_bundle.proxy.is_available", lambda c: False)
-    bundle = BundledMcp(servers=[server], skip_unavailable=True)
-    assert bundle.available_servers() == []
+@pytest.mark.asyncio
+async def test_proxied_call_runs_through_guard_allow():
+    srv = _fresh_guarded()
+    srv.mount(_upstream(), namespace="fs")
+    async with Client(srv) as c:
+        r = await c.call_tool("fs_read_file", {"path": "/tmp/ok.txt"})
+        assert r.is_error is False
+
+
+@pytest.mark.asyncio
+async def test_proxied_call_denied_by_guard():
+    srv = _fresh_guarded()
+    srv.mount(_upstream(), namespace="fs")
+    async with Client(srv) as c:
+        with pytest.raises(ToolError, match="denied"):
+            await c.call_tool("fs_read_file", {"path": "/home/u/.ssh/id_rsa"})
+
+
+def test_stdio_config_shape():
+    cfg = bundle_server._stdio_config(
+        BundledServer("filesystem", ("npx", "-y", "srv", "/root"), "fs", "d")
+    )
+    entry = cfg["mcpServers"]["filesystem"]
+    assert entry["command"] == "npx"
+    assert entry["args"] == ["-y", "srv", "/root"]
+    assert entry["transport"] == "stdio"
+
+
+def test_mount_available_skips_missing(monkeypatch):
+    import shutil
+    monkeypatch.setattr(shutil, "which", lambda c: None)
+    missing = BundledServer("nope", ("nonexistent-xyz",), "np", "d")
+    assert bundle_server.mount_available([missing]) == []
+
+
+def test_mount_available_required_raises(monkeypatch):
+    import shutil
+    monkeypatch.setattr(shutil, "which", lambda c: None)
+    required = BundledServer("req", ("nonexistent-xyz",), "rq", "d", required=True)
+    with pytest.raises(RuntimeError, match="required MCP server"):
+        bundle_server.mount_available([required])
 
 
 def test_registry_defaults():
