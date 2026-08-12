@@ -1,6 +1,6 @@
 mcp[cli]>=1.0
 fastmcp>=0.1
-shesha-audit>=0.1
+shesh-audit>=0.1
 
 [dev]
 pytest>=8.0

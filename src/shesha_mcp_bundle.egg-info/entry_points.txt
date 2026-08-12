@@ -1,2 +1,2 @@
 [console_scripts]
-shesha-mcp-bundle-mcp = shesha_mcp_bundle.server:main
+shesh-mcp-bundle-mcp = shesh_mcp_bundle.server:main

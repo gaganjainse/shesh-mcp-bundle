@@ -11,7 +11,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from shesh_mcp_bundle.proxy import BundledMcp  # noqa: E402
 from shesh_mcp_bundle.registry import (  # noqa: E402
-    BundledServer, default_servers,
+    BundledServer,
+    default_servers,
 )
 
 

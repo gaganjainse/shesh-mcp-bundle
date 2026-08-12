@@ -1,1 +1,1 @@
-shesha_mcp_bundle
+shesh_mcp_bundle
