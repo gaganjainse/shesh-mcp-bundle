@@ -28,6 +28,13 @@ def _stdio_config(server: BundledServer) -> dict:
     }
 
 
+class ServerUnavailableError(RuntimeError):
+    """A required MCP server binary is not on PATH."""
+
+    def __init__(self, name: str, command: str) -> None:
+        super().__init__(f"required MCP server {name!r}: {command} not on PATH")
+
+
 def mount_available(servers: list[BundledServer] | None = None) -> list[str]:
     """Proxy-mount every available upstream under its namespace.
 
@@ -41,9 +48,7 @@ def mount_available(servers: list[BundledServer] | None = None) -> list[str]:
     for server in servers if servers is not None else default_servers():
         if shutil.which(server.command[0]) is None:
             if server.required:
-                raise RuntimeError(
-                    f"required MCP server {server.name!r}: {server.command[0]} not on PATH"
-                )
+                raise ServerUnavailableError(server.name, server.command[0])
             continue
         proxy = create_proxy(_stdio_config(server))
         mcp.mount(proxy, namespace=server.prefix)
