@@ -9,7 +9,7 @@ authors = [{ name = "Gagan Jain" }]
 dependencies = ["fastmcp>=3.4.7,<4", "shesh-audit>=0.1"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.24", "ruff>=0.6"]
+dev = ["pytest>=9.1", "pytest-asyncio>=1.4", "ruff>=0.16"]
 
 [project.scripts]
 shesh-mcp-bundle-mcp = "shesh_mcp_bundle.server:main"
