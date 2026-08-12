@@ -16,3 +16,8 @@ uv run pytest -q
 uv run ruff check .
 uv run shesh-mcp-bundle-mcp
 ```
+
+## Security
+
+Security posture and vulnerability reporting: [canonical ecosystem security
+policy](https://github.com/gaganjainse/shesh-ecosystem/blob/main/SECURITY.md).
