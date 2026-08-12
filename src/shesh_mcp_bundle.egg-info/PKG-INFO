@@ -1,3 +1,18 @@
+Metadata-Version: 2.4
+Name: shesh-mcp-bundle
+Version: 0.1.0
+Summary: Shesh Soma: curated third-party MCP servers (filesystem/fetch/git) behind the Guard
+Author: Gagan Jain
+License: GPL-3.0-or-later
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: mcp[cli]>=1.0
+Requires-Dist: fastmcp>=0.1
+Requires-Dist: shesh-audit>=0.1
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: ruff>=0.6; extra == "dev"
+
 # 📦 shesh-mcp-bundle
 
 Curated third-party MCP servers — **filesystem**, **fetch**, **git** — run as

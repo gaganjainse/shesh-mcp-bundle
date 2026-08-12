@@ -9,8 +9,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from shesha_mcp_bundle.proxy import BundledMcp  # noqa: E402
-from shesha_mcp_bundle.registry import (  # noqa: E402
+from shesh_mcp_bundle.proxy import BundledMcp  # noqa: E402
+from shesh_mcp_bundle.registry import (  # noqa: E402
     BundledServer, default_servers,
 )
 
@@ -57,7 +57,7 @@ class FakeProc:
 
 def test_guarded_call_denies_protected(monkeypatch):
     server = BundledServer("filesystem", ("true",), "fs", "files")
-    monkeypatch.setattr("shesha_mcp_bundle.proxy.is_available", lambda c: True)
+    monkeypatch.setattr("shesh_mcp_bundle.proxy.is_available", lambda c: True)
     bundle = BundledMcp(servers=[server])
     fp = FakeProc()
     monkeypatch.setattr(bundle, "_start", lambda s: fp)
@@ -83,7 +83,7 @@ def test_guarded_call_denies_protected(monkeypatch):
 
 def test_guarded_call_allows_and_routes(monkeypatch):
     server = BundledServer("fetch", ("true",), "fetch", "web")
-    monkeypatch.setattr("shesha_mcp_bundle.proxy.is_available", lambda c: True)
+    monkeypatch.setattr("shesh_mcp_bundle.proxy.is_available", lambda c: True)
     bundle = BundledMcp(servers=[server])
     fp = FakeProc()
     monkeypatch.setattr(bundle, "_start", lambda s: fp)
@@ -107,7 +107,7 @@ def test_guarded_call_allows_and_routes(monkeypatch):
 
 def test_missing_server_skipped(monkeypatch):
     server = BundledServer("x", ("nonexistent-binary-xyz",), "x", "x")
-    monkeypatch.setattr("shesha_mcp_bundle.proxy.is_available", lambda c: False)
+    monkeypatch.setattr("shesh_mcp_bundle.proxy.is_available", lambda c: False)
     bundle = BundledMcp(servers=[server], skip_unavailable=True)
     assert bundle.available_servers() == []
 

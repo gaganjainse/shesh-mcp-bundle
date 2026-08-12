@@ -1,8 +1,8 @@
-"""shesha-mcp-bundle: curated third-party MCP servers behind the Guard.
+"""shesh-mcp-bundle: curated third-party MCP servers behind the Guard.
 
 Rather than re-implementing filesystem/git/fetch, this component runs the
 upstream MCP servers as subprocesses and proxies their tool calls through
-shesha-audit's policy gate. Each bundled server is declared with the command
+shesh-audit's policy gate. Each bundled server is declared with the command
 used to launch it and the tool-name prefix it is exposed under.
 
 Currently bundled (all optional and opt-in):

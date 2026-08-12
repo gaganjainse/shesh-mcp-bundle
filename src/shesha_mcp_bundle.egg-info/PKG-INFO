@@ -1,0 +1,33 @@
+Metadata-Version: 2.4
+Name: shesha-mcp-bundle
+Version: 0.1.0
+Summary: Shesha Soma: curated third-party MCP servers (filesystem/fetch/git) behind the Guard
+Author: Gagan Jain
+License: GPL-3.0-or-later
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: mcp[cli]>=1.0
+Requires-Dist: fastmcp>=0.1
+Requires-Dist: shesha-audit>=0.1
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: ruff>=0.6; extra == "dev"
+
+# 📦 shesha-mcp-bundle
+
+Curated third-party MCP servers — **filesystem**, **fetch**, **git** — run as
+subprocesses and proxied through the shesha-audit Guard so every tool call is
+policy-checked and logged. Upstream servers are not re-implemented.
+
+- License: GPL-3.0
+- Layer: Soma
+- Part of: [Shesha ecosystem](https://github.com/gaganjainse/shesha-ecosystem)
+
+Servers are opt-in and skipped if their launcher (`npx`/`uvx`) is missing.
+
+## Develop
+```bash
+uv run pytest -q
+uv run ruff check .
+uv run shesha-mcp-bundle-mcp
+```

@@ -7,11 +7,11 @@ from .proxy import BundledMcp, ToolProxy
 from .registry import default_servers
 
 try:
-    from shesha_audit.mcp_guard import GuardedMCP as _MCP
+    from shesh_audit.mcp_guard import GuardedMCP as _MCP
 except ImportError:
     _MCP = FastMCP
 
-mcp = _MCP("shesha-mcp-bundle")
+mcp = _MCP("shesh-mcp-bundle")
 
 _bundle = BundledMcp(servers=default_servers())
 

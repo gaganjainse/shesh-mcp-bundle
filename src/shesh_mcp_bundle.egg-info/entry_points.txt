@@ -1,0 +1,2 @@
+[console_scripts]
+shesh-mcp-bundle-mcp = shesh_mcp_bundle.server:main

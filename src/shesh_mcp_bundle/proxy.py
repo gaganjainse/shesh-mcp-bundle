@@ -89,7 +89,7 @@ class BundledMcp:
         self._write(proc, {
             "jsonrpc": "2.0", "id": self._next(), "method": "initialize",
             "params": {"protocolVersion": "2024-11-05",
-                       "capabilities": {}, "clientInfo": {"name": "shesha-mcp-bundle"}},
+                       "capabilities": {}, "clientInfo": {"name": "shesh-mcp-bundle"}},
         })
         self._read(proc)  # initialize result
         self._notify(proc, "notifications/initialized")
