@@ -3,6 +3,11 @@ name: CI
 # A tombstone has no source to test. This job asserts that it stays inert:
 # if source reappears here, the module has been forked away from shesh-core
 # and the two copies will drift.
+#
+# The check used to test only `[ -d src ]` at the repository root, so nested
+# source (ebpf-rs/src, watcher-rs/src) passed it. It now searches the whole
+# tree by file extension, because a gate that reports success while inspecting
+# only the root is worse than no gate.
 
 on:
   push:
@@ -13,10 +18,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   tombstone:
     name: Repository is superseded
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -24,8 +33,15 @@ jobs:
 
       - name: No source may live here
         run: |
-          if [ -d src ] || [ -d tests ]; then
-            echo "::error::src/ or tests/ present in a superseded repository."
+          found=$(find . -path ./.git -prune -o -type f \
+            \( -name '*.py' -o -name '*.rs' -o -name '*.go' -o -name '*.ts' \
+               -o -name '*.tsx' -o -name '*.c' -o -name '*.cpp' -o -name '*.h' \
+               -o -name 'Cargo.toml' -o -name 'pyproject.toml' -o -name 'setup.py' \
+               -o -name 'go.mod' -o -name 'package.json' -o -name 'Makefile' \) \
+            -print | sort)
+          if [ -n "$found" ]; then
+            echo "::error::source or build files present in a superseded repository:"
+            printf '%s\n' "$found"
             echo "The canonical code is in shesh-core (ADR-0019)."
             exit 1
           fi
@@ -35,6 +51,10 @@ jobs:
         run: |
           grep -q "shesh-core" README.md || {
             echo "::error::README must name the superseding repository."
+            exit 1
+          }
+          grep -qi "supersed\|tombstone" README.md || {
+            echo "::error::README must state that this repository is superseded."
             exit 1
           }
           echo "Supersession recorded."
