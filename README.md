@@ -1,26 +1,35 @@
->  **Consolidated into [shesh-core](https://github.com/gaganjainse/shesh-core)** — this module now lives in the shesh-core monorepo (same package name, same console script). Archived 2026-08-13.
-
 # shesh-mcp-bundle
 
-Curated third-party MCP servers — **filesystem**, **fetch**, **git** — run as
-subprocesses and proxied through the shesh-audit Guard so every tool call is
-policy-checked and logged. Upstream servers are not re-implemented.
+> **Superseded by [shesh-core](https://github.com/gaganjainse/shesh-core).**
+> This repository is a tombstone: its history is preserved, its source is not.
 
-- License: GPL-3.0
-- Layer: Soma
-- Part of: [Shesh ecosystem](https://github.com/gaganjainse/shesh-ecosystem)
+## What happened
 
-Servers are opt-in and skipped if their launcher (`npx`/`uvx`) is missing.
+[ADR-0019](https://github.com/gaganjainse/shesh-docs/blob/main/src/governance/adr/0019-shesh-core-monorepo.md)
+consolidated the single-module services into one repository. A module of a few
+hundred lines is not a service: each one carried its own build configuration,
+pipeline, and security policy, and those drifted apart from each other.
 
-## Develop
+The code now lives in `shesh-core` as the `shesh_mcp_bundle` package, with
+the same import path and the same console script.
+
+## Why the source was removed
+
+Two copies of the same module drift. Keeping the code here meant a reader could
+find it, edit it, and have the change silently ignored by everything that
+actually runs.
+
+The history remains in this repository's git log. Nothing was lost.
+
+## Installing
 
 ```bash
-uv run pytest -q
-uv run ruff check .
-uv run shesh-mcp-bundle-mcp
+pipx install git+https://github.com/gaganjainse/shesh-core.git
 ```
 
-## Security
+Console script names are unchanged, so existing client configuration keeps
+working.
 
-Security posture and vulnerability reporting: [canonical ecosystem security
-policy](https://github.com/gaganjainse/shesh-ecosystem/blob/main/SECURITY.md).
+## Licence
+
+GPL-3.0-or-later.

@@ -1,19 +1,40 @@
 name: CI
 
+# A tombstone has no source to test. This job asserts that it stays inert:
+# if source reappears here, the module has been forked away from shesh-core
+# and the two copies will drift.
+
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
 
-# Least privilege by default; jobs that write declare it explicitly.
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
-  component:
-    uses: gaganjainse/shesh-ecosystem/.github/workflows/component-ci.yml@a2d13d4f6ab0d3685722824420a1fca588230525  # main — reusable pipeline; Dependabot moves the pin
-    # Decision D1: pipeline definition lives in shesh-ecosystem; only
-    # this repo's deltas below — do NOT vendor steps back into this file.
-    with:
-      existing-repos: "shesh-audit"
-      extra-pip: "pytest-asyncio"
+  tombstone:
+    name: Repository is superseded
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: No source may live here
+        run: |
+          if [ -d src ] || [ -d tests ]; then
+            echo "::error::src/ or tests/ present in a superseded repository."
+            echo "The canonical code is in shesh-core (ADR-0019)."
+            exit 1
+          fi
+          echo "Inert, as intended. Canonical source: shesh-core."
+
+      - name: The README must point at the replacement
+        run: |
+          grep -q "shesh-core" README.md || {
+            echo "::error::README must name the superseding repository."
+            exit 1
+          }
+          echo "Supersession recorded."
