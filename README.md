@@ -1,6 +1,6 @@
-> ⚠️ **Consolidated into [shesh-core](https://github.com/gaganjainse/shesh-core)** — this module now lives in the shesh-core monorepo (same package name, same console script). Archived 2026-08-13.
+>  **Consolidated into [shesh-core](https://github.com/gaganjainse/shesh-core)** — this module now lives in the shesh-core monorepo (same package name, same console script). Archived 2026-08-13.
 
-# 📦 shesh-mcp-bundle
+# shesh-mcp-bundle
 
 Curated third-party MCP servers — **filesystem**, **fetch**, **git** — run as
 subprocesses and proxied through the shesh-audit Guard so every tool call is
@@ -13,6 +13,7 @@ policy-checked and logged. Upstream servers are not re-implemented.
 Servers are opt-in and skipped if their launcher (`npx`/`uvx`) is missing.
 
 ## Develop
+
 ```bash
 uv run pytest -q
 uv run ruff check .
